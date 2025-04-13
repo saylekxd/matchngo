@@ -1,0 +1,2 @@
+-- This migration file is no longer needed as all changes are included in the first migration
+-- Keeping this file empty to avoid conflicts with existing migration history
