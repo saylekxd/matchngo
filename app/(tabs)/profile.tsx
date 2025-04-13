@@ -14,7 +14,7 @@ import UserAvatar from '@/components/UserAvatar';
 import Card from '@/components/Card';
 import Input from '@/components/Input';
 import Button from '@/components/Button';
-import { LogOut, CreditCard as Edit, Save, X } from 'lucide-react-native';
+import { LogOut, CreditCard as Edit, Save, X, PlusCircle } from 'lucide-react-native';
 import { router } from 'expo-router';
 
 export default function ProfileScreen() {
@@ -77,6 +77,10 @@ export default function ProfileScreen() {
     const newExpertise = [...expertiseAreas];
     newExpertise.splice(index, 1);
     setExpertiseAreas(newExpertise);
+  };
+
+  const navigateToCreateOpportunity = () => {
+    router.push('/create');
   };
   
   const handleSaveProfile = async () => {
@@ -159,33 +163,41 @@ export default function ProfileScreen() {
       )}
       
       {profile?.base?.role === 'ngo' && profile.ngo && (
-        <Card style={styles.infoCard}>
-          <Text style={styles.cardTitle}>Organization Information</Text>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Organization:</Text>
-            <Text style={styles.infoValue}>{profile.ngo.organization_name}</Text>
-          </View>
-          
-          {profile.ngo.website && (
+        <>
+          <Card style={styles.infoCard}>
+            <Text style={styles.cardTitle}>Organization Information</Text>
+            
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Website:</Text>
-              <Text style={styles.infoValue}>{profile.ngo.website}</Text>
+              <Text style={styles.infoLabel}>Organization:</Text>
+              <Text style={styles.infoValue}>{profile.ngo.organization_name}</Text>
             </View>
-          )}
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Location:</Text>
-            <Text style={styles.infoValue}>{profile.ngo.city}, {profile.ngo.country}</Text>
-          </View>
-          
-          {profile.ngo.mission_statement && (
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>Mission Statement:</Text>
-              <Text style={styles.infoValue}>{profile.ngo.mission_statement}</Text>
+            
+            {profile.ngo.website && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Website:</Text>
+                <Text style={styles.infoValue}>{profile.ngo.website}</Text>
+              </View>
+            )}
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Location:</Text>
+              <Text style={styles.infoValue}>{profile.ngo.city}, {profile.ngo.country}</Text>
             </View>
-          )}
-        </Card>
+            
+            {profile.ngo.mission_statement && (
+              <View style={styles.infoSection}>
+                <Text style={styles.infoLabel}>Mission Statement:</Text>
+                <Text style={styles.infoValue}>{profile.ngo.mission_statement}</Text>
+              </View>
+            )}
+          </Card>
+
+          <Button
+            title="Create New Opportunity"
+            onPress={navigateToCreateOpportunity}
+            style={styles.createButton}
+          />
+        </>
       )}
       
       {profile?.base?.role === 'expert' && profile.expert && (
@@ -414,6 +426,9 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 14,
     color: '#495057',
+  },
+  createButton: {
+    marginBottom: 24,
   },
   signOutButton: {
     marginTop: 24,

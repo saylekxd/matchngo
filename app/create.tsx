@@ -14,8 +14,8 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import Input from '@/components/Input';
 import Button from '@/components/Button';
-import { CalendarPlus, X } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { CalendarPlus, X, ArrowLeft } from 'lucide-react-native';
+import { router, Stack } from 'expo-router';
 
 export default function CreateOpportunityScreen() {
   const { profile } = useAuth();
@@ -160,6 +160,12 @@ export default function CreateOpportunityScreen() {
           <Text style={styles.notAuthorizedText}>
             Only NGO accounts can create opportunities.
           </Text>
+          <Button
+            title="Go Back"
+            onPress={() => router.back()}
+            type="secondary"
+            style={styles.goBackButton}
+          />
         </View>
       </SafeAreaView>
     );
@@ -167,6 +173,13 @@ export default function CreateOpportunityScreen() {
   
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen 
+        options={{
+          headerShown: true,
+          title: "Create Opportunity",
+          headerBackTitle: "Back",
+        }}
+      />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -329,6 +342,12 @@ export default function CreateOpportunityScreen() {
               loading={isLoading}
               style={styles.submitButton}
             />
+            
+            <Button
+              title="Cancel"
+              onPress={() => router.back()}
+              type="secondary"
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -359,6 +378,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 24,
     color: '#6c757d',
+  },
+  goBackButton: {
+    margin: 16,
   },
   dateContainer: {
     flexDirection: 'row',
@@ -460,4 +482,4 @@ const styles = StyleSheet.create({
   submitButton: {
     marginBottom: 16,
   },
-});
+}); 

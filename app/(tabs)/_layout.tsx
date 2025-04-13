@@ -2,7 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
-import { Chrome as Home, Search, SquarePlus as PlusSquare, MessageSquare, User } from 'lucide-react-native';
+import { Chrome as Home, Search, MessageSquare, User } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { profile } = useAuth();
@@ -37,18 +37,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      
-      {userRole === 'ngo' && (
-        <Tabs.Screen
-          name="create"
-          options={{
-            title: 'Create',
-            tabBarIcon: ({ color, size }) => (
-              <PlusSquare size={size} color={color} />
-            ),
-          }}
-        />
-      )}
       
       <Tabs.Screen
         name="messages"
