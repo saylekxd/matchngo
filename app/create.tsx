@@ -5,7 +5,6 @@ import {
   Text, 
   SafeAreaView, 
   ScrollView, 
-  TouchableOpacity, 
   Alert,
   KeyboardAvoidingView,
   Platform
@@ -17,7 +16,7 @@ import Button from '@/components/Button';
 import DatePicker from '@/components/DatePicker';
 import CompensationSelector from '@/components/CompensationSelector';
 import ExpertiseTags from '@/components/ExpertiseTags';
-import { CalendarPlus, X, ArrowLeft } from 'lucide-react-native';
+import LocationSelector from '@/components/maps/LocationSelector';
 import { router, Stack } from 'expo-router';
 
 // Form validation
@@ -93,6 +92,7 @@ export default function CreateOpportunityScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [locationName, setLocationName] = useState('');
+  const [locationCoords, setLocationCoords] = useState<{latitude: number, longitude: number} | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [compensationType, setCompensationType] = useState<'paid' | 'volunteer'>('paid');
@@ -147,7 +147,7 @@ export default function CreateOpportunityScreen() {
           title,
           description,
           required_expertise: requiredExpertise,
-          location: { latitude: 0, longitude: 0 }, // Default location for now
+          location: locationCoords || { latitude: 0, longitude: 0 },
           location_name: locationName,
           start_date: startDate,
           end_date: endDate,
@@ -234,12 +234,13 @@ export default function CreateOpportunityScreen() {
             error={errors.description}
           />
           
-          <Input
-            label="Location"
-            value={locationName}
-            onChangeText={setLocationName}
-            placeholder="Enter the location (e.g., City, Country)"
+          <LocationSelector
+            locationName={locationName}
+            onLocationNameChange={setLocationName}
+            locationCoords={locationCoords}
+            onLocationCoordsChange={setLocationCoords}
             error={errors.locationName}
+            label="Location"
           />
           
           <View style={styles.dateContainer}>
@@ -341,5 +342,5 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginBottom: 16,
-  },
+  }
 }); 
