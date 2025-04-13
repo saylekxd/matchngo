@@ -2,7 +2,7 @@
 
 A platform connecting NGOs with experts for collaboration on projects.
 
-## Supabase Setup
+## Supabase Setup :)
 
 ### Managing RLS Policies
 
