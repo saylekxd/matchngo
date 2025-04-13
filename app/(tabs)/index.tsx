@@ -3,12 +3,9 @@ import { StyleSheet, View, Text, FlatList, RefreshControl, SafeAreaView, Alert, 
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import Card from '@/components/Card';
-import UserAvatar from '@/components/UserAvatar';
 import OpportunityCard from '@/components/OpportunityCard';
 import { router } from 'expo-router';
 import { Database } from '@/lib/database.types';
-import MapDisplay from '@/components/maps/MapDisplay';
-import { MapPin, List } from 'lucide-react-native';
 
 type Opportunity = Database['public']['Tables']['opportunities']['Row'];
 type Application = Database['public']['Tables']['applications']['Row'];
@@ -17,7 +14,6 @@ export default function HomeScreen() {
   const { profile } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   
   // Data states based on user role
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -30,35 +26,34 @@ export default function HomeScreen() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // Load all opportunities for the map view
-      const { data: allOpportunities, error: opportunitiesError } = await supabase
-        .from('opportunities')
-        .select(`
-          *,
-          ngo:ngo_profiles(
-            organization_name
-          )
-        `)
-        .eq('status', 'open')
-        .order('created_at', { ascending: false });
-      
-      if (opportunitiesError) throw opportunitiesError;
-      setOpportunities(allOpportunities || []);
-
-      // Load role-specific data
       if (profile?.base?.role === 'ngo') {
-        // Filter opportunities for NGO view
-        const ngoOpportunities = allOpportunities?.filter(opp => opp.ngo_id === profile.ngo?.id) || [];
-        setOpportunities(ngoOpportunities);
+        // Load NGO's opportunities
+        const { data: ngoOpportunities, error: opportunitiesError } = await supabase
+          .from('opportunities')
+          .select('*')
+          .eq('ngo_id', profile.ngo?.id)
+          .order('created_at', { ascending: false });
+        
+        if (opportunitiesError) throw opportunitiesError;
+        setOpportunities(ngoOpportunities || []);
       } else if (profile?.base?.role === 'expert') {
         // Load expert's applications
+        const expertId = profile.expert?.id;
+        
+        // Type guard with null check and assertion
+        if (!expertId || typeof expertId !== 'string') {
+          console.error('Expert ID not found or invalid');
+          return;
+        }
+
+        // expertId is now definitely a string
         const { data: applicationData, error: applicationError } = await supabase
           .from('applications')
           .select(`
             *,
             opportunity:opportunities(*)
           `)
-          .eq('expert_id', profile.expert?.id || '')
+          .eq('expert_id', expertId)
           .order('created_at', { ascending: false });
         
         if (applicationError) throw applicationError;
@@ -86,188 +81,104 @@ export default function HomeScreen() {
     router.push(`/application/${application.id}`);
   };
 
-  // Toggle between list and map view
-  const toggleViewMode = () => {
-    setViewMode(viewMode === 'list' ? 'map' : 'list');
-  };
-
-  // Prepare markers for the map
-  const getMapMarkers = () => {
-    return opportunities
-      .filter(opp => {
-        const location = opp.location as { latitude: number, longitude: number } | null;
-        return location && location.latitude && location.longitude;
-      })
-      .map(opp => {
-        const location = opp.location as { latitude: number, longitude: number };
-        return {
-          id: opp.id,
-          coordinate: {
-            latitude: location.latitude,
-            longitude: location.longitude
-          },
-          title: opp.title,
-          description: opp.location_name,
-          ngoName: (opp as any).ngo?.organization_name,
-          startDate: opp.start_date,
-          endDate: opp.end_date
-        };
-      });
-  };
-
-  // Render map with opportunity markers
-  const renderMap = () => {
-    const markers = getMapMarkers();
-    
-    return (
-      <View style={styles.mapContainer}>
-        <MapDisplay 
-          markers={markers}
-          style={styles.map}
-          onMarkerPress={(marker) => {
-            const opportunity = opportunities.find(opp => opp.id === marker.id);
-            if (opportunity) {
-              handleViewOpportunity(opportunity);
-            }
-          }}
-        />
-        {markers.length === 0 && (
-          <View style={styles.noMarkersOverlay}>
-            <Text style={styles.noMarkersText}>No opportunities found in this area</Text>
-          </View>
-        )}
-      </View>
-    );
-  };
-
   // Render functions for different user roles
   const renderNGOHome = () => (
     <View style={styles.container}>
       <Text style={styles.welcomeText}>Welcome, {profile?.ngo?.organization_name}</Text>
+      <Text style={styles.sectionTitle}>Your Opportunities</Text>
       
-      <View style={styles.viewToggleContainer}>
-        <Text style={styles.sectionTitle}>Your Opportunities</Text>
-        <TouchableOpacity style={styles.viewToggleButton} onPress={toggleViewMode}>
-          {viewMode === 'list' ? (
-            <MapPin size={24} color="#0066cc" />
-          ) : (
-            <List size={24} color="#0066cc" />
-          )}
-        </TouchableOpacity>
-      </View>
-      
-      {viewMode === 'map' ? (
-        renderMap()
-      ) : (
-        <FlatList
-          data={opportunities}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <OpportunityCard 
-              opportunity={item} 
-              onPress={handleViewOpportunity} 
-            />
-          )}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={
-            <Card>
-              <Text style={styles.emptyStateText}>
-                {isLoading ? 'Loading opportunities...' : "You haven't created any opportunities yet."}
-              </Text>
-              <Text style={styles.emptyStateSubText}>
-                {isLoading 
-                  ? 'Please wait while we fetch your opportunities'
-                  : 'Create an opportunity to find experts who can help your organization.'}
-              </Text>
-              {!isLoading && (
-                <TouchableOpacity 
-                  style={styles.refreshButton} 
-                  onPress={onRefresh}
-                >
-                  <Text style={styles.refreshButtonText}>Pull to refresh</Text>
-                </TouchableOpacity>
-              )}
-            </Card>
-          }
-          contentContainerStyle={opportunities.length === 0 ? styles.emptyListContainer : undefined}
-        />
-      )}
+      <FlatList
+        data={opportunities}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <OpportunityCard 
+            opportunity={item} 
+            onPress={handleViewOpportunity} 
+          />
+        )}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
+          <Card>
+            <Text style={styles.emptyStateText}>
+              {isLoading ? 'Loading opportunities...' : "You haven't created any opportunities yet."}
+            </Text>
+            <Text style={styles.emptyStateSubText}>
+              {isLoading 
+                ? 'Please wait while we fetch your opportunities'
+                : 'Create an opportunity to find experts who can help your organization.'}
+            </Text>
+            {!isLoading && (
+              <TouchableOpacity 
+                style={styles.refreshButton} 
+                onPress={onRefresh}
+              >
+                <Text style={styles.refreshButtonText}>Pull to refresh</Text>
+              </TouchableOpacity>
+            )}
+          </Card>
+        }
+        contentContainerStyle={opportunities.length === 0 ? styles.emptyListContainer : undefined}
+      />
     </View>
   );
 
   const renderExpertHome = () => (
     <View style={styles.container}>
       <Text style={styles.welcomeText}>Welcome, {profile?.base?.full_name}</Text>
+      <Text style={styles.sectionTitle}>Your Applications</Text>
       
-      <View style={styles.viewToggleContainer}>
-        <Text style={styles.sectionTitle}>
-          {viewMode === 'list' ? 'Your Applications' : 'Available Opportunities'}
-        </Text>
-        <TouchableOpacity style={styles.viewToggleButton} onPress={toggleViewMode}>
-          {viewMode === 'list' ? (
-            <MapPin size={24} color="#0066cc" />
-          ) : (
-            <List size={24} color="#0066cc" />
-          )}
-        </TouchableOpacity>
-      </View>
-      
-      {viewMode === 'map' ? (
-        renderMap()
-      ) : (
-        <FlatList
-          data={applications}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <Card onPress={() => handleViewApplication(item)}>
-              <View style={styles.applicationCard}>
-                <Text style={styles.applicationTitle}>{item.opportunity.title}</Text>
-                <View style={styles.applicationStatusContainer}>
-                  <View style={[
-                    styles.statusBadge,
-                    item.status === 'pending' && styles.statusPending,
-                    item.status === 'accepted' && styles.statusAccepted,
-                    item.status === 'rejected' && styles.statusRejected,
-                    item.status === 'withdrawn' && styles.statusWithdrawn,
-                  ]}>
-                    <Text style={styles.statusText}>
-                      {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                    </Text>
-                  </View>
+      <FlatList
+        data={applications}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Card onPress={() => handleViewApplication(item)}>
+            <View style={styles.applicationCard}>
+              <Text style={styles.applicationTitle}>{item.opportunity.title}</Text>
+              <View style={styles.applicationStatusContainer}>
+                <View style={[
+                  styles.statusBadge,
+                  item.status === 'pending' && styles.statusPending,
+                  item.status === 'accepted' && styles.statusAccepted,
+                  item.status === 'rejected' && styles.statusRejected,
+                  item.status === 'withdrawn' && styles.statusWithdrawn,
+                ]}>
+                  <Text style={styles.statusText}>
+                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                  </Text>
                 </View>
               </View>
-            </Card>
-          )}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={
-            <Card>
-              <Text style={styles.emptyStateText}>
-                {isLoading ? 'Loading applications...' : "You haven't applied to any opportunities yet."}
-              </Text>
-              <Text style={styles.emptyStateSubText}>
-                {isLoading 
-                  ? 'Please wait while we fetch your applications'
-                  : 'Browse opportunities that match your expertise and apply to them.'}
-              </Text>
-              {!isLoading && (
-                <TouchableOpacity 
-                  style={styles.refreshButton} 
-                  onPress={onRefresh}
-                >
-                  <Text style={styles.refreshButtonText}>Pull to refresh</Text>
-                </TouchableOpacity>
-              )}
-            </Card>
-          }
-          contentContainerStyle={applications.length === 0 ? styles.emptyListContainer : undefined}
-        />
-      )}
+            </View>
+          </Card>
+        )}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
+          <Card>
+            <Text style={styles.emptyStateText}>
+              {isLoading ? 'Loading applications...' : "You haven't applied to any opportunities yet."}
+            </Text>
+            <Text style={styles.emptyStateSubText}>
+              {isLoading 
+                ? 'Please wait while we fetch your applications'
+                : 'Browse opportunities that match your expertise and apply to them.'}
+            </Text>
+            {!isLoading && (
+              <TouchableOpacity 
+                style={styles.refreshButton} 
+                onPress={onRefresh}
+              >
+                <Text style={styles.refreshButtonText}>Pull to refresh</Text>
+              </TouchableOpacity>
+            )}
+          </Card>
+        }
+        contentContainerStyle={applications.length === 0 ? styles.emptyListContainer : undefined}
+      />
     </View>
   );
 
@@ -293,20 +204,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: '#212529',
   },
-  viewToggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  viewToggleButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#e9ecef',
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
+    marginBottom: 16,
     color: '#212529',
   },
   emptyStateText: {
@@ -356,31 +257,6 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-  },
-  mapContainer: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 16,
-    height: 500,
-  },
-  map: {
-    flex: 1,
-  },
-  noMarkersOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-  },
-  noMarkersText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#495057',
   },
   emptyListContainer: {
     flexGrow: 1,

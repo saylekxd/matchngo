@@ -16,10 +16,15 @@ import OpportunityCard from '@/components/OpportunityCard';
 import Card from '@/components/Card';
 import UserAvatar from '@/components/UserAvatar';
 import { router } from 'expo-router';
-import { Search, Filter } from 'lucide-react-native';
+import { Search, Filter, MapPin, List } from 'lucide-react-native';
 import { Database } from '@/lib/database.types';
+import MapDisplay from '@/components/maps/MapDisplay';
 
-type Opportunity = Database['public']['Tables']['opportunities']['Row'];
+type Opportunity = Database['public']['Tables']['opportunities']['Row'] & {
+  ngo?: {
+    organization_name: string;
+  };
+};
 type ExpertProfile = Database['public']['Tables']['expert_profiles']['Row'] & {
   profile: Database['public']['Tables']['profiles']['Row']
 };
@@ -29,6 +34,7 @@ export default function ExploreScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   
   // Data states based on user role
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -41,27 +47,32 @@ export default function ExploreScreen() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      if (profile?.base?.role === 'expert') {
-        // Load opportunities for experts
-        const { data, error } = await supabase
-          .from('opportunities')
-          .select('*')
-          .eq('status', 'open')
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        setOpportunities(data || []);
-      } else if (profile?.base?.role === 'ngo') {
+      // Load all opportunities with NGO data for both list and map view
+      const { data: allOpportunities, error: opportunitiesError } = await supabase
+        .from('opportunities')
+        .select(`
+          *,
+          ngo:ngo_profiles(
+            organization_name
+          )
+        `)
+        .eq('status', 'open')
+        .order('created_at', { ascending: false });
+      
+      if (opportunitiesError) throw opportunitiesError;
+      setOpportunities(allOpportunities || []);
+
+      if (profile?.base?.role === 'ngo') {
         // Load experts for NGOs
-        const { data, error } = await supabase
+        const { data: expertsData, error: expertsError } = await supabase
           .from('expert_profiles')
           .select(`
             *,
             profile:profiles(*)
           `);
         
-        if (error) throw error;
-        setExperts(data as ExpertProfile[] || []);
+        if (expertsError) throw expertsError;
+        setExperts(expertsData as ExpertProfile[] || []);
       }
     } catch (error) {
       console.error('Error loading explore data:', error);
@@ -97,6 +108,55 @@ export default function ExploreScreen() {
     ))
   );
 
+  // Prepare markers for the map
+  const getMapMarkers = () => {
+    return opportunities
+      .filter(opp => {
+        const location = opp.location as { latitude: number, longitude: number } | null;
+        return location && location.latitude && location.longitude;
+      })
+      .map(opp => {
+        const location = opp.location as { latitude: number, longitude: number };
+        return {
+          id: opp.id,
+          coordinate: {
+            latitude: location.latitude,
+            longitude: location.longitude
+          },
+          title: opp.title,
+          description: opp.location_name,
+          ngoName: opp.ngo?.organization_name,
+          startDate: opp.start_date,
+          endDate: opp.end_date
+        };
+      });
+  };
+
+  // Render map with opportunity markers
+  const renderMap = () => {
+    const markers = getMapMarkers();
+    
+    return (
+      <View style={styles.mapContainer}>
+        <MapDisplay 
+          markers={markers}
+          style={styles.map}
+          onMarkerPress={(marker) => {
+            const opportunity = opportunities.find(opp => opp.id === marker.id);
+            if (opportunity) {
+              handleViewOpportunity(opportunity);
+            }
+          }}
+        />
+        {markers.length === 0 && (
+          <View style={styles.noMarkersOverlay}>
+            <Text style={styles.noMarkersText}>No opportunities found in this area</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   // Render functions for different user roles
   const renderExpertExplore = () => (
     <View style={styles.container}>
@@ -115,15 +175,19 @@ export default function ExploreScreen() {
         </TouchableOpacity>
       </View>
       
-      <Text style={styles.sectionTitle}>Available Opportunities</Text>
+      <View style={styles.viewToggleContainer}>
+        <Text style={styles.sectionTitle}>Available Opportunities</Text>
+        <TouchableOpacity style={styles.viewToggleButton} onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}>
+          {viewMode === 'list' ? (
+            <MapPin size={24} color="#0066cc" />
+          ) : (
+            <List size={24} color="#0066cc" />
+          )}
+        </TouchableOpacity>
+      </View>
       
-      {filteredOpportunities.length === 0 ? (
-        <Card>
-          <Text style={styles.emptyStateText}>No opportunities found.</Text>
-          <Text style={styles.emptyStateSubText}>
-            Try adjusting your search or check back later for new opportunities.
-          </Text>
-        </Card>
+      {viewMode === 'map' ? (
+        renderMap()
       ) : (
         <FlatList
           data={filteredOpportunities}
@@ -137,6 +201,14 @@ export default function ExploreScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <Card>
+              <Text style={styles.emptyStateText}>No opportunities found.</Text>
+              <Text style={styles.emptyStateSubText}>
+                Try adjusting your search or check back later for new opportunities.
+              </Text>
+            </Card>
           }
         />
       )}
@@ -160,15 +232,19 @@ export default function ExploreScreen() {
         </TouchableOpacity>
       </View>
       
-      <Text style={styles.sectionTitle}>Available Experts</Text>
+      <View style={styles.viewToggleContainer}>
+        <Text style={styles.sectionTitle}>Available Experts</Text>
+        <TouchableOpacity style={styles.viewToggleButton} onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}>
+          {viewMode === 'list' ? (
+            <MapPin size={24} color="#0066cc" />
+          ) : (
+            <List size={24} color="#0066cc" />
+          )}
+        </TouchableOpacity>
+      </View>
       
-      {filteredExperts.length === 0 ? (
-        <Card>
-          <Text style={styles.emptyStateText}>No experts found.</Text>
-          <Text style={styles.emptyStateSubText}>
-            Try adjusting your search or check back later for new experts.
-          </Text>
-        </Card>
+      {viewMode === 'map' ? (
+        renderMap()
       ) : (
         <FlatList
           data={filteredExperts}
@@ -206,6 +282,14 @@ export default function ExploreScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
+          ListEmptyComponent={
+            <Card>
+              <Text style={styles.emptyStateText}>No experts found.</Text>
+              <Text style={styles.emptyStateSubText}>
+                Try adjusting your search or check back later.
+              </Text>
+            </Card>
+          }
         />
       )}
     </View>
@@ -213,7 +297,7 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {profile?.base?.role === 'expert' ? renderExpertExplore() : renderNGOExplore()}
+      {profile?.base?.role === 'ngo' ? renderNGOExplore() : renderExpertExplore()}
     </SafeAreaView>
   );
 }
@@ -258,10 +342,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  viewToggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  viewToggleButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#e9ecef',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 16,
     color: '#212529',
   },
   emptyStateText: {
@@ -309,6 +403,31 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 12,
+    color: '#495057',
+  },
+  mapContainer: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    height: 500,
+  },
+  map: {
+    flex: 1,
+  },
+  noMarkersOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  noMarkersText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#495057',
   },
 });
