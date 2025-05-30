@@ -40,19 +40,33 @@ export default function ExpertProfileScreen() {
     try {
       setIsLoading(true);
       
-      // Fetch expert profile with reviews
-      const { data, error } = await supabase
+      // Fetch expert profile
+      const { data: expertData, error: expertError } = await supabase
         .from('expert_profiles')
         .select(`
           *,
-          profile:profiles(*),
-          reviews:reviews(*)
+          profile:profiles(*)
         `)
         .eq('id', id as string)
         .single();
       
-      if (error) throw error;
-      setExpertProfile(data as ExpertProfile);
+      if (expertError) throw expertError;
+      
+      // Fetch reviews for this expert separately (reviews are linked to profile_id, not expert_profiles.id)
+      const { data: reviewsData, error: reviewsError } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('reviewee_id', expertData.profile.id);
+      
+      if (reviewsError) throw reviewsError;
+      
+      // Combine the data
+      const expertWithReviews = {
+        ...expertData,
+        reviews: reviewsData || []
+      };
+      
+      setExpertProfile(expertWithReviews as ExpertProfile);
     } catch (error) {
       console.error('Error loading expert profile:', error);
       Alert.alert('Error', 'Failed to load expert profile');
