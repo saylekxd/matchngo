@@ -232,6 +232,24 @@ export default function ExploreScreen() {
         </TouchableOpacity>
       </View>
       
+      {/* Map promotion banner */}
+      {viewMode === 'list' && (
+        <TouchableOpacity 
+          style={styles.mapBanner}
+          onPress={() => setViewMode('map')}
+        >
+          <View style={styles.bannerContent}>
+            <MapPin size={24} color="#4361ee" />
+            <View style={styles.bannerTextContainer}>
+              <Text style={styles.bannerTitle}>Discover Experts on Map</Text>
+              <Text style={styles.bannerSubtext}>
+                Switch to map view to find experts near you geographically
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
+      
       <View style={styles.viewToggleContainer}>
         <Text style={styles.sectionTitle}>Available Experts</Text>
         <TouchableOpacity style={styles.viewToggleButton} onPress={() => setViewMode(viewMode === 'list' ? 'map' : 'list')}>
@@ -429,5 +447,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#495057',
+  },
+  mapBanner: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  bannerTextContainer: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#212529',
+    marginBottom: 4,
+  },
+  bannerSubtext: {
+    fontSize: 14,
+    color: '#6c757d',
+    lineHeight: 20,
   },
 });
