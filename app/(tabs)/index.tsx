@@ -4,13 +4,14 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import Card from '@/components/Card';
 import OpportunityCard from '@/components/OpportunityCard';
+import HomeBanner from '@/components/HomeBanner';
 import { router } from 'expo-router';
 import { Database } from '@/lib/database.types';
 
 type Opportunity = Database['public']['Tables']['opportunities']['Row'];
 type Application = Database['public']['Tables']['applications']['Row'];
 
-export default function HomeScreen() {
+function HomeScreen() {
   const { profile } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,11 +28,17 @@ export default function HomeScreen() {
     setIsLoading(true);
     try {
       if (profile?.base?.role === 'ngo') {
+        const ngoId = profile.ngo?.id;
+        if (!ngoId) {
+          console.error('NGO ID not found');
+          return;
+        }
+
         // Load NGO's opportunities
         const { data: ngoOpportunities, error: opportunitiesError } = await supabase
           .from('opportunities')
           .select('*')
-          .eq('ngo_id', profile.ngo?.id)
+          .eq('ngo_id', ngoId)
           .order('created_at', { ascending: false });
         
         if (opportunitiesError) throw opportunitiesError;
@@ -85,49 +92,55 @@ export default function HomeScreen() {
   const renderNGOHome = () => (
     <View style={styles.container}>
       <Text style={styles.welcomeText}>Welcome, {profile?.ngo?.organization_name}</Text>
+      <HomeBanner userRole="ngo" />
       <Text style={styles.sectionTitle}>Your Opportunities</Text>
       
-      <FlatList
-        data={opportunities}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <OpportunityCard 
-            opportunity={item} 
-            onPress={handleViewOpportunity} 
-          />
-        )}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <Card>
-            <Text style={styles.emptyStateText}>
-              {isLoading ? 'Loading opportunities...' : "You haven't created any opportunities yet."}
-            </Text>
-            <Text style={styles.emptyStateSubText}>
-              {isLoading 
-                ? 'Please wait while we fetch your opportunities'
-                : 'Create an opportunity to find experts who can help your organization.'}
-            </Text>
-            {!isLoading && (
-              <TouchableOpacity 
-                style={styles.refreshButton} 
-                onPress={onRefresh}
-              >
-                <Text style={styles.refreshButtonText}>Pull to refresh</Text>
-              </TouchableOpacity>
-            )}
-          </Card>
-        }
-        contentContainerStyle={opportunities.length === 0 ? styles.emptyListContainer : undefined}
-      />
+      {/* Show empty state message right under the title */}
+      {opportunities.length === 0 && (
+        <Card>
+          <Text style={styles.emptyStateText}>
+            {isLoading ? 'Loading opportunities...' : "You haven't created any opportunities yet."}
+          </Text>
+          <Text style={styles.emptyStateSubText}>
+            {isLoading 
+              ? 'Please wait while we fetch your opportunities'
+              : 'Create an opportunity to find experts who can help your organization.'}
+          </Text>
+          {!isLoading && (
+            <TouchableOpacity 
+              style={styles.refreshButton} 
+              onPress={onRefresh}
+            >
+              <Text style={styles.refreshButtonText}>Pull to refresh</Text>
+            </TouchableOpacity>
+          )}
+        </Card>
+      )}
+      
+      {/* Only show FlatList if there are opportunities */}
+      {opportunities.length > 0 && (
+        <FlatList
+          data={opportunities}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <OpportunityCard 
+              opportunity={item} 
+              onPress={handleViewOpportunity} 
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+      )}
     </View>
   );
 
   const renderExpertHome = () => (
     <View style={styles.container}>
       <Text style={styles.welcomeText}>Welcome, {profile?.base?.full_name}</Text>
+      <HomeBanner userRole="expert" />
       <Text style={styles.sectionTitle}>Your Applications</Text>
       
       <FlatList
@@ -189,6 +202,8 @@ export default function HomeScreen() {
   );
 }
 
+export default HomeScreen;
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -203,6 +218,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 8,
     color: '#212529',
+  },
+  banner: {
+    backgroundColor: '#e9ecef',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#212529',
+    marginBottom: 4,
+  },
+  bannerText: {
+    fontSize: 14,
+    color: '#495057',
+  },
+  bannerButton: {
+    backgroundColor: '#4361ee',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+    marginTop: 12,
+  },
+  bannerButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   sectionTitle: {
     fontSize: 18,

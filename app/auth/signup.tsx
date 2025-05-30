@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
   },
   expertiseInputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   expertiseInput: {
     flex: 1,
@@ -577,7 +577,6 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   addButton: {
-    marginTop: 24,
     height: 50,
   },
   expertiseTagsContainer: {

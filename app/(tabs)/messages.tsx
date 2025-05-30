@@ -178,10 +178,22 @@ export default function MessagesScreen() {
         
         {conversations.length === 0 ? (
           <Card>
-            <Text style={styles.emptyStateText}>No conversations yet.</Text>
-            <Text style={styles.emptyStateSubText}>
-              Start messaging experts or NGOs to collaborate on opportunities.
+            <Text style={styles.emptyStateText}>
+              {isLoading ? 'Loading conversations...' : 'No conversations yet.'}
             </Text>
+            <Text style={styles.emptyStateSubText}>
+              {isLoading 
+                ? 'Please wait while we fetch your conversations'
+                : 'Start messaging experts or NGOs to collaborate on opportunities.'}
+            </Text>
+            {!isLoading && (
+              <TouchableOpacity 
+                style={styles.refreshButton} 
+                onPress={onRefresh}
+              >
+                <Text style={styles.refreshButtonText}>Pull to refresh</Text>
+              </TouchableOpacity>
+            )}
           </Card>
         ) : (
           <FlatList
@@ -334,5 +346,17 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     backgroundColor: '#e9ecef',
+  },
+  refreshButton: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#e9ecef',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  refreshButtonText: {
+    color: '#0066cc',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
